@@ -353,7 +353,7 @@ class AssertionConsumerServiceView(View):
 
         refresh = RefreshToken.for_user(user)
 
-        _set_subject_id(saml_session, session_info['name_id'])
+        _set_subject_id(self.request.session, session_info['name_id'])
         logger.debug("User %s authenticated via SSO.", user)
         logger.debug('Sending the post_authenticated signal')
 
