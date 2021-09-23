@@ -55,6 +55,9 @@ from .utils import (available_idps, fail_acs_response, get_custom_setting,
                     get_idp_sso_supported_bindings, get_location,
                     validate_referral_url, get_saml_request_session)
 
+from rest_framework_simplejwt.tokens import RefreshToken
+from datetime import datetime, timedelta
+
 try:
     from django.contrib.auth.views import LogoutView
     django_logout = LogoutView.as_view()
@@ -344,7 +347,10 @@ class AssertionConsumerServiceView(View):
             logger.warning("Could not authenticate user received in SAML Assertion. Session info: %s", session_info)
             return fail_acs_response(request, exception=PermissionDenied('No user could be authenticated.'))
 
-        auth.login(self.request, user)
+        # auth.login(self.request, user)
+
+        refresh = RefreshToken.for_user(user)
+
         _set_subject_id(saml_session, session_info['name_id'])
         logger.debug("User %s authenticated via SSO.", user)
         logger.debug('Sending the post_authenticated signal')
@@ -360,10 +366,24 @@ class AssertionConsumerServiceView(View):
         relay_state = self.build_relay_state()
         custom_redirect_url = self.custom_redirect(user, relay_state, session_info)
         if custom_redirect_url:
-            return HttpResponseRedirect(custom_redirect_url)
+            response = HttpResponseRedirect(custom_redirect_url)
+            response.set_cookie(
+                'Authentication', str(refresh.access_token),
+                httponly=True,
+                secure=True,
+                expires=datetime.utcnow() + settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME'),
+            )
+            return response
         relay_state = validate_referral_url(request, relay_state)
         logger.debug('Redirecting to the RelayState: %s', relay_state)
-        return HttpResponseRedirect(relay_state)
+        response = HttpResponseRedirect(relay_state)
+        response.set_cookie(
+            'Authentication', str(refresh.access_token),
+            httponly=True,
+            secure=True,
+            expires=datetime.utcnow() + settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME'),
+        )
+        return response
 
     def build_relay_state(self):
         """
