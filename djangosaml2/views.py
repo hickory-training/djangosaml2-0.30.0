@@ -295,6 +295,7 @@ class AssertionConsumerServiceView(View):
         client = Saml2Client(conf, identity_cache=IdentityCache(self.request.session))
         # oq_cache = OutstandingQueriesCache(saml_session)
         # oq_cache.sync()
+        oq_cache = OutstandingQueriesCache(self.request.session)
         outstanding_queries = oq_cache.outstanding_queries()
 
         try:
